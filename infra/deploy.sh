@@ -118,7 +118,7 @@ cmd_ssl() {
 
   # Switch nginx to SSL config
   echo "Switching nginx to HTTPS config..."
-  docker compose exec frontend sh -c "envsubst '\$DOMAIN' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -s reload"
+  docker compose exec frontend sh -c "export DOMAIN=$DOMAIN && envsubst '\$DOMAIN' < /etc/nginx/ssl.conf.template > /etc/nginx/conf.d/default.conf && nginx -s reload"
 
   echo "SSL provisioned. Site available at https://$DOMAIN"
 }
