@@ -8,7 +8,7 @@ ENV NODE_ENV=development
 RUN npm ci
 COPY packages/shared/ packages/shared/
 COPY apps/backend/ apps/backend/
-RUN npx tsc --version && npm run build -w packages/shared && npm run build -w apps/backend
+RUN ls node_modules/.bin/tsc && npm run build -w packages/shared && npm run build -w apps/backend
 
 FROM node:20-alpine
 WORKDIR /app
