@@ -1,24 +1,76 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-settlesync}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-settlesync}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-settlesync}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 64mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   backend:
     build:
       context: ..
       dockerfile: infra/Dockerfile.backend
-    ports:
-      - "3001:3001"
     environment:
       - NODE_ENV=production
       - PORT=3001
-      - DATABASE_URL=./data/settlesync.db
-      - JWT_SECRET=${JWT_SECRET:-change-me}
-      - HMAC_SECRET=${HMAC_SECRET:-change-me}
-      - FRONTEND_URL=http://localhost
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-settlesync}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-settlesync}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - HMAC_SECRET=${HMAC_SECRET}
+      - FRONTEND_URL=${FRONTEND_URL:-https://settlesync.example.com}
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
       - FROM_EMAIL=${FROM_EMAIL:-noreply@settlesync.app}
-    volumes:
-      - backend-data:/app/apps/backend/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    command: ["node", "apps/backend/dist/worker.js"]
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-settlesync}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-settlesync}
+      - REDIS_URL=redis://redis:6379
+      - HMAC_SECRET=${HMAC_SECRET}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - FROM_EMAIL=${FROM_EMAIL:-noreply@settlesync.app}
+      - FRONTEND_URL=${FRONTEND_URL:-https://settlesync.example.com}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -27,9 +79,34 @@ services:
       dockerfile: infra/Dockerfile.frontend
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
     depends_on:
       - backend
     restart: unless-stopped
 
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    restart: unless-stopped
+
+  backup:
+    image: postgres:16-alpine
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do pg_dump -h postgres -U ${POSTGRES_USER:-settlesync} ${POSTGRES_DB:-settlesync} | gzip > /backups/settlesync-$$(date +%Y%m%d-%H%M%S).sql.gz && find /backups -name \"*.sql.gz\" -mtime +7 -delete; sleep 86400 & wait $${!}; done;'"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
-  backend-data:
+  pg-data:
+  redis-data:

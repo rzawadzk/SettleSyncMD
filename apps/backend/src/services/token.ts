@@ -50,6 +50,7 @@ export function getMagicLinkExpiry(): string {
 /**
  * Sprawdza czy token nie wygasł
  */
-export function isTokenExpired(expiresAt: string): boolean {
-  return new Date(expiresAt) < new Date();
+export function isTokenExpired(expiresAt: string | Date): boolean {
+  const expiry = expiresAt instanceof Date ? expiresAt : new Date(expiresAt);
+  return expiry < new Date();
 }

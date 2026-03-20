@@ -3,8 +3,8 @@ import { defineConfig } from 'drizzle-kit';
 export default defineConfig({
   schema: './src/db/schema.ts',
   out: './drizzle',
-  dialect: 'sqlite',
+  dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL || 'file:./data/settlesync.db',
+    url: process.env.DATABASE_URL || 'postgresql://settlesync:settlesync@localhost:5432/settlesync',
   },
 });

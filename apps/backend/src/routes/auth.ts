@@ -3,7 +3,7 @@ import { eq, and, isNull } from 'drizzle-orm';
 import { magicLinkRequestSchema } from '@settlesync/shared';
 import { db, schema } from '../db/index.js';
 import { generateMagicLinkToken, getMagicLinkExpiry, isTokenExpired } from '../services/token.js';
-import { sendMagicLink } from '../services/email.js';
+import { enqueueEmail } from '../services/emailQueue.js';
 import { signJwt } from '../middleware/auth.js';
 import { authRateLimiter } from '../middleware/rateLimiter.js';
 import { logError } from '../services/logger.js';
@@ -33,7 +33,7 @@ router.post('/magic-link', authRateLimiter, async (req, res) => {
     });
 
     if (!arbiter) {
-      const [result] = await db.insert(schema.arbiters).values({ email, createdAt: new Date().toISOString() }).returning();
+      const [result] = await db.insert(schema.arbiters).values({ email }).returning();
       arbiter = result;
     }
 
@@ -44,12 +44,11 @@ router.post('/magic-link', authRateLimiter, async (req, res) => {
     await db.insert(schema.magicLinks).values({
       arbiterId: arbiter.id,
       token,
-      expiresAt,
-      createdAt: new Date().toISOString(),
+      expiresAt: new Date(expiresAt),
     });
 
-    // Wyślij email
-    await sendMagicLink(email, token);
+    // Kolejkuj email (async, z retry)
+    await enqueueEmail({ type: 'magic-link', to: email, token });
 
     // Odpowiedź nie zdradza czy email istnieje w systemie
     res.json({ message: 'If this email is registered, a login link has been sent.' });
@@ -88,7 +87,7 @@ router.get('/verify', authRateLimiter, async (req, res) => {
 
     // Oznacz jako użyty
     await db.update(schema.magicLinks)
-      .set({ usedAt: new Date().toISOString() })
+      .set({ usedAt: new Date() })
       .where(eq(schema.magicLinks.id, magicLink.id));
 
     const arbiter = await db.query.arbiters.findFirst({

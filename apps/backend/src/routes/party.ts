@@ -4,7 +4,7 @@ import { partyResponseSchema } from '@settlesync/shared';
 import type { PartyView } from '@settlesync/shared';
 import { db, schema } from '../db/index.js';
 import { verifyPartyToken, isTokenExpired } from '../services/token.js';
-import { sendBothAgreedNotification } from '../services/email.js';
+import { enqueueEmail } from '../services/emailQueue.js';
 import { partyRateLimiter } from '../middleware/rateLimiter.js';
 import { logError } from '../services/logger.js';
 
@@ -19,7 +19,7 @@ const router = Router();
  */
 router.get('/:token', partyRateLimiter, async (req, res) => {
   try {
-    const { token } = req.params;
+    const token = req.params.token as string;
 
     if (!verifyPartyToken(token)) {
       res.status(404).json({ error: 'Invalid token' });
@@ -72,7 +72,7 @@ router.get('/:token', partyRateLimiter, async (req, res) => {
  */
 router.post('/:token/respond', partyRateLimiter, async (req, res) => {
   try {
-    const { token } = req.params;
+    const token = req.params.token as string;
 
     if (!verifyPartyToken(token)) {
       res.status(404).json({ error: 'Invalid token' });
@@ -119,7 +119,7 @@ router.post('/:token/respond', partyRateLimiter, async (req, res) => {
       consent,
       timeHorizon: timeHorizon ?? null,
       note: note ?? null,
-      respondedAt: new Date().toISOString(),
+      respondedAt: new Date(),
     });
 
     // Sprawdź czy obie strony odpowiedziały "yes" i zaktualizuj status sprawy
@@ -146,7 +146,7 @@ async function updateCaseStatus(caseId: number) {
   const yesCount = allResponses.filter((r) => r?.consent === 'yes').length;
   const respondedCount = allResponses.filter((r) => r != null).length;
 
-  let newStatus: string;
+  let newStatus: 'pending' | 'one_agreed' | 'both_agreed' | 'expired';
   if (yesCount === 2) {
     newStatus = 'both_agreed';
   } else if (yesCount === 1 || respondedCount === 1) {
@@ -159,7 +159,7 @@ async function updateCaseStatus(caseId: number) {
     .set({ status: newStatus })
     .where(eq(schema.cases.id, caseId));
 
-  // Jeśli obie strony zgodne — powiadom arbitra
+  // Jeśli obie strony zgodne — powiadom arbitra (async, przez kolejkę)
   if (newStatus === 'both_agreed') {
     const caseRow = await db.query.cases.findFirst({
       where: eq(schema.cases.id, caseId),
@@ -169,7 +169,12 @@ async function updateCaseStatus(caseId: number) {
         where: eq(schema.arbiters.id, caseRow.arbiterId),
       });
       if (arbiter) {
-        await sendBothAgreedNotification(arbiter.email, caseRow.arbitrationId, caseRow.internalName);
+        await enqueueEmail({
+          type: 'both-agreed',
+          to: arbiter.email,
+          arbitrationId: caseRow.arbitrationId,
+          internalName: caseRow.internalName,
+        });
       }
     }
   }

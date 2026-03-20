@@ -5,7 +5,7 @@ import type { CaseSummary, CaseDetail } from '@settlesync/shared';
 import { db, schema } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { generatePartyToken, getPartyTokenExpiry } from '../services/token.js';
-import { sendPartyLink } from '../services/email.js';
+import { enqueueEmail } from '../services/emailQueue.js';
 import { logError } from '../services/logger.js';
 
 const router = Router();
@@ -30,7 +30,6 @@ router.post('/', async (req, res) => {
 
     const { internalName, arbitrationId, description, tokenTtlHours } = parsed.data;
     const ttl = tokenTtlHours ?? TOKEN_TTL_HOURS;
-    const now = new Date().toISOString();
 
     // Utwórz sprawę
     const [caseRow] = await db.insert(schema.cases).values({
@@ -40,11 +39,10 @@ router.post('/', async (req, res) => {
       description: description ?? null,
       status: 'pending',
       tokenTtlHours: ttl,
-      createdAt: now,
     }).returning();
 
     // Wygeneruj tokeny dla stron A i B
-    const expiresAt = getPartyTokenExpiry(ttl);
+    const expiresAt = new Date(getPartyTokenExpiry(ttl));
     for (const party of ['A', 'B'] as const) {
       await db.insert(schema.partyTokens).values({
         caseId: caseRow.id,
@@ -52,7 +50,6 @@ router.post('/', async (req, res) => {
         token: generatePartyToken(),
         emailSent: false,
         expiresAt,
-        createdAt: now,
       });
     }
 
@@ -83,7 +80,7 @@ router.get('/', async (req, res) => {
       internalName: r.internalName,
       arbitrationId: r.arbitrationId,
       status: r.status as CaseSummary['status'],
-      createdAt: r.createdAt,
+      createdAt: r.createdAt.toISOString(),
     }));
 
     res.json(summaries);
@@ -161,7 +158,7 @@ router.post('/:id/send-links', async (req, res) => {
     for (const token of tokens) {
       const email = emailMap[token.party];
       if (email) {
-        await sendPartyLink(email, token.token, caseRow.arbitrationId);
+        await enqueueEmail({ type: 'party-link', to: email, token: token.token, arbitrationId: caseRow.arbitrationId });
         await db.update(schema.partyTokens)
           .set({ emailSent: true })
           .where(eq(schema.partyTokens.id, token.id));
@@ -198,7 +195,7 @@ async function getCaseDetail(caseId: number, arbiterId: number): Promise<CaseDet
         consent: response?.consent as CaseDetail['parties'][0]['consent'] ?? null,
         timeHorizon: response?.timeHorizon as CaseDetail['parties'][0]['timeHorizon'] ?? null,
         note: response?.note ?? null,
-        respondedAt: response?.respondedAt ?? null,
+        respondedAt: response?.respondedAt?.toISOString() ?? null,
       };
     }),
   );
@@ -210,7 +207,7 @@ async function getCaseDetail(caseId: number, arbiterId: number): Promise<CaseDet
     description: caseRow.description,
     status: caseRow.status as CaseDetail['status'],
     tokenTtlHours: caseRow.tokenTtlHours,
-    createdAt: caseRow.createdAt,
+    createdAt: caseRow.createdAt.toISOString(),
     parties,
   };
 }

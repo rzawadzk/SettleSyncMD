@@ -1,9 +1,9 @@
 import express from 'express';
 import { securityHeaders, corsMiddleware } from './middleware/security.js';
-import { initEmailTransport } from './services/email.js';
 import authRoutes from './routes/auth.js';
 import casesRoutes from './routes/cases.js';
 import partyRoutes from './routes/party.js';
+import { logInfo } from './services/logger.js';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const app = express();
@@ -26,11 +26,6 @@ app.use('/api/cases', casesRoutes);
 app.use('/api/party', partyRoutes);
 
 // Start
-async function start() {
-  await initEmailTransport();
-  app.listen(PORT, () => {
-    console.log(`SettleSync backend running on http://localhost:${PORT}`);
-  });
-}
-
-start().catch(console.error);
+app.listen(PORT, () => {
+  logInfo('server', `SettleSync backend running on :${PORT}`);
+});
