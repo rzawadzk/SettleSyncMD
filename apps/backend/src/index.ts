@@ -8,6 +8,9 @@ import { logInfo } from './services/logger.js';
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const app = express();
 
+// Trust nginx reverse proxy (for correct IP in rate limiting)
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(securityHeaders);
 app.use(corsMiddleware);
