@@ -68,8 +68,9 @@ cmd_update() {
 
   cd "$SCRIPT_DIR"
 
-  echo "Building containers..."
-  docker compose build
+  echo "Building containers (one at a time to save memory)..."
+  DOCKER_BUILDKIT=1 docker compose build --no-cache backend
+  DOCKER_BUILDKIT=1 docker compose build --no-cache frontend
 
   echo "Running database migrations..."
   docker compose run --rm backend node apps/backend/dist/db/migrate.js
