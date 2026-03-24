@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zaloguj się do SettleSync</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background:#1a1a2e;padding:24px 32px;">
+              <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:600;">SettleSync</h1>
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px;">
+              <h2 style="margin:0 0 16px;color:#1a1a2e;font-size:18px;">Logowanie do systemu</h2>
+              <p style="margin:0 0 24px;color:#4a4a5a;font-size:15px;line-height:1.6;">
+                Kliknij poniższy przycisk, aby zalogować się do panelu mediatora. Link jest ważny przez {{expiresMinutes}} minut.
+              </p>
+              <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+                <tr>
+                  <td style="background:#2563eb;border-radius:6px;">
+                    <a href="{{verifyUrl}}" style="display:inline-block;padding:12px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">
+                      Zaloguj się
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0 0 8px;color:#6b7280;font-size:13px;">
+                Jeśli nie prosiłeś(-aś) o ten link, zignoruj tę wiadomość.
+              </p>
+              <p style="margin:0;color:#9ca3af;font-size:12px;word-break:break-all;">
+                {{verifyUrl}}
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f9fafb;padding:16px 32px;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;color:#9ca3af;font-size:12px;">
+                SettleSync — Bezpieczny portal mediacyjny
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

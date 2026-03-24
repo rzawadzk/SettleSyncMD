@@ -1,0 +1,64 @@
+name: Feature Request
+description: Suggest a new feature for SettleSync
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! We especially welcome ideas from practicing mediators and legal professionals.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Use Case
+      description: What problem does this solve? What mediation workflow does it improve?
+      placeholder: |
+        As a mediator, I need to... because currently...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How would you like this to work?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What other approaches did you consider?
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Consent Workflow
+        - Case Management
+        - Document Handling
+        - Settlement Generation
+        - Email / Notifications
+        - Admin / Analytics
+        - i18n / Localization
+        - Security / Privacy
+        - Deployment / Infrastructure
+        - API / Integration
+        - Accessibility
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: jurisdiction
+    attributes:
+      label: Jurisdiction Relevance
+      description: Is this specific to a particular legal jurisdiction?
+      options:
+        - Universal / All jurisdictions
+        - Poland (PL)
+        - European Union (EU)
+        - Other (specify in description)

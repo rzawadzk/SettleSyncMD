@@ -1,0 +1,43 @@
+{
+  "name": "settlesync",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Open-source mediation consent & case management portal",
+  "license": "EUPL-1.2",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/settlesync/settlesync.git"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w apps/backend\" \"npm run dev -w apps/frontend\"",
+    "build": "npm run build -w packages/shared && npm run build -w apps/backend && npm run build -w apps/frontend",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "typecheck": "tsc --noEmit -p apps/backend/tsconfig.json && tsc --noEmit -p apps/frontend/tsconfig.json",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "db:migrate": "npm run db:migrate -w apps/backend",
+    "db:seed": "npm run db:seed -w apps/backend",
+    "db:studio": "npm run db:studio -w apps/backend"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "concurrently": "^9.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  }
+}
