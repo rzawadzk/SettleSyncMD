@@ -70,6 +70,7 @@ cmd_update() {
 
   echo "Building containers (one at a time to save memory)..."
   DOCKER_BUILDKIT=1 docker compose build --no-cache backend
+  DOCKER_BUILDKIT=1 docker compose build --no-cache worker
   DOCKER_BUILDKIT=1 docker compose build --no-cache frontend
 
   echo "Running database migrations..."
@@ -108,17 +109,18 @@ cmd_ssl() {
   docker compose up -d frontend
 
   echo "Requesting certificate for $DOMAIN..."
-  docker compose run --rm certbot certonly \
+  docker compose run --rm --entrypoint "" certbot certbot certonly \
     --webroot \
     --webroot-path=/var/www/certbot \
     -d "$DOMAIN" \
     --email "$CERTBOT_EMAIL" \
     --agree-tos \
-    --no-eff-email
+    --no-eff-email \
+    --keep-until-expiring
 
-  # Switch nginx to SSL config
-  echo "Switching nginx to HTTPS config..."
-  docker compose exec frontend sh -c "export DOMAIN=$DOMAIN && envsubst '\$DOMAIN' < /etc/nginx/ssl.conf.template > /etc/nginx/conf.d/default.conf && nginx -s reload"
+  # Restart frontend to pick up SSL certificates automatically
+  echo "Restarting frontend with HTTPS..."
+  docker compose restart frontend
 
   echo "SSL provisioned. Site available at https://$DOMAIN"
 }
