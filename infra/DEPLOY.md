@@ -46,13 +46,47 @@ apt install -y docker-compose-plugin
 docker compose version
 ```
 
-Set up a firewall:
+Create a non-root user:
 
 ```bash
-ufw allow OpenSSH
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw enable
+adduser settlesync
+usermod -aG docker settlesync
+su - settlesync
+```
+
+### Firewall (Linode Cloud Firewall)
+
+If using Linode's Cloud Firewall, ensure these rules:
+
+**Inbound:** Accept TCP on ports 22, 80, 443 from all sources
+
+**Outbound:**
+- Accept TCP on port 587 (SMTP for sending emails)
+- Accept UDP on port 53 (DNS — required for Docker to resolve hostnames)
+- Accept all other outbound (or at minimum TCP 80, 443 for package installs)
+
+> **Important:** Docker containers cannot resolve DNS if outbound UDP 53 is blocked. This is the most common deployment issue.
+
+### Docker DNS fix
+
+If Docker containers can't reach the internet (e.g., `npm ci` fails with `EAI_AGAIN`):
+
+```bash
+sudo mkdir -p /etc/docker
+echo '{"dns": ["8.8.8.8", "8.8.4.4"]}' | sudo tee /etc/docker/daemon.json
+sudo systemctl restart docker
+```
+
+### Swap space (for 1GB instances)
+
+If builds fail with out-of-memory errors on small instances:
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
 
 ## 4. Deploy SettleSync
@@ -60,9 +94,10 @@ ufw enable
 Clone the repository:
 
 ```bash
-cd /opt
-git clone <YOUR_REPO_URL> settlesync
-cd settlesync/infra
+sudo mkdir -p /opt/settlesync
+sudo chown settlesync:settlesync /opt/settlesync
+git clone https://github.com/rzawadzk/SettleSyncMD.git /opt/settlesync
+cd /opt/settlesync/infra
 ```
 
 Initialize configuration:
@@ -110,8 +145,10 @@ Once DNS has propagated and the site is reachable on port 80:
 
 This will:
 1. Request a Let's Encrypt certificate via HTTP-01 challenge
-2. Switch nginx to HTTPS with the new certificate
+2. Restart nginx, which auto-detects the certificate and enables HTTPS
 3. Start automatic certificate renewal (every 12 hours check)
+
+HTTPS is preserved across rebuilds — the frontend container auto-detects existing certificates on startup.
 
 Your site is now live at `https://settlesync.yourdomain.com`
 
