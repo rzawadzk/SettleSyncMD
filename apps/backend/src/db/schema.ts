@@ -35,7 +35,7 @@ export const cases = pgTable('cases', {
   internalName: text('internal_name').notNull(),
   arbitrationId: text('arbitration_id').notNull(),
   description: text('description'),
-  status: text('status', { enum: ['pending', 'one_agreed', 'both_agreed', 'expired'] }).notNull().default('pending'),
+  status: text('status', { enum: ['pending', 'one_agreed', 'both_agreed', 'declined', 'expired'] }).notNull().default('pending'),
   tokenTtlHours: integer('token_ttl_hours').notNull().default(72),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [

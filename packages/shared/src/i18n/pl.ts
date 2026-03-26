@@ -40,7 +40,15 @@ export const pl = {
       pending: 'Oczekuje',
       one_agreed: 'Jedna strona wyraziła zgodę',
       both_agreed: 'Obie strony zgodne',
+      declined: 'Odmowa',
       expired: 'Wygasła',
+    },
+    statusTooltip: {
+      pending: 'Oczekiwanie na odpowiedzi stron. Linki zostały wysłane, ale nie wszyscy jeszcze odpowiedzieli.',
+      one_agreed: 'Jedna strona wyraziła gotowość do mediacji. Oczekiwanie na odpowiedź drugiej strony.',
+      both_agreed: 'Obie strony wyraziły gotowość do mediacji. Możesz przystąpić do organizacji mediacji.',
+      declined: 'Obie strony odpowiedziały, ale żadna nie wyraziła gotowości do mediacji. Strony mogą jeszcze zmienić zdanie przed wygaśnięciem linków.',
+      expired: 'Linki wygasły. Strony nie mogą już odpowiedzieć. Utwórz nową sprawę, jeśli chcesz ponowić próbę.',
     },
   },
   createCase: {

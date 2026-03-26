@@ -40,7 +40,15 @@ export const en = {
       pending: 'Pending',
       one_agreed: 'One party agreed',
       both_agreed: 'Both parties agreed',
+      declined: 'Declined',
       expired: 'Expired',
+    },
+    statusTooltip: {
+      pending: 'Waiting for party responses. Links have been sent but not everyone has responded yet.',
+      one_agreed: 'One party has expressed willingness to mediate. Waiting for the other party to respond.',
+      both_agreed: 'Both parties have expressed willingness to mediate. You can proceed to organize mediation.',
+      declined: 'Both parties have responded but neither expressed willingness to mediate. Parties can still change their mind before the links expire.',
+      expired: 'Links have expired. Parties can no longer respond. Create a new case if you want to try again.',
     },
   },
   createCase: {

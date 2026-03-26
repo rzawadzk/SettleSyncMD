@@ -160,11 +160,17 @@ async function updateCaseStatus(caseId: number) {
   const yesCount = allResponses.filter((r) => r?.consent === 'yes').length;
   const respondedCount = allResponses.filter((r) => r != null).length;
 
-  let newStatus: 'pending' | 'one_agreed' | 'both_agreed' | 'expired';
+  let newStatus: 'pending' | 'one_agreed' | 'both_agreed' | 'declined' | 'expired';
   if (yesCount === 2) {
     newStatus = 'both_agreed';
-  } else if (yesCount === 1 || respondedCount === 1) {
+  } else if (yesCount === 1) {
     newStatus = 'one_agreed';
+  } else if (respondedCount === 2) {
+    // Both responded but neither said yes — declined
+    newStatus = 'declined';
+  } else if (respondedCount === 1) {
+    // One responded (not yes) — still pending, waiting for the other
+    newStatus = 'pending';
   } else {
     newStatus = 'pending';
   }

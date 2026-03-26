@@ -8,6 +8,7 @@ const statusColors: Record<string, string> = {
   pending: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
   one_agreed: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   both_agreed: 'bg-green-500/10 text-green-400 border-green-500/20',
+  declined: 'bg-red-500/10 text-red-400 border-red-500/20',
   expired: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
 };
 
@@ -60,7 +61,10 @@ export default function Dashboard() {
                   <h3 className="font-medium text-slate-100">{c.internalName}</h3>
                   <p className="text-sm text-slate-400 mt-0.5">{c.arbitrationId}</p>
                 </div>
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${statusColors[c.status]}`}>
+                <span
+                  className={`text-xs font-medium px-2.5 py-1 rounded-full border cursor-help ${statusColors[c.status]}`}
+                  title={t(`dashboard.statusTooltip.${c.status}`)}
+                >
                   {t(`dashboard.status.${c.status}`)}
                 </span>
               </div>

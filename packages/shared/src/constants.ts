@@ -16,7 +16,7 @@ export type TimeHorizon = (typeof TIME_HORIZONS)[number];
 export const CONSENT_OPTIONS = ['yes', 'no', 'later'] as const;
 export type ConsentOption = (typeof CONSENT_OPTIONS)[number];
 
-export const CASE_STATUSES = ['pending', 'one_agreed', 'both_agreed', 'expired'] as const;
+export const CASE_STATUSES = ['pending', 'one_agreed', 'both_agreed', 'declined', 'expired'] as const;
 export type CaseStatus = (typeof CASE_STATUSES)[number];
 
 export const PARTY_LABELS = ['A', 'B'] as const;
