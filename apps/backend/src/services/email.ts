@@ -66,6 +66,25 @@ export async function sendPartyLink(email: string, token: string, arbitrationId:
   `);
 }
 
+export async function sendPartyConfirmation(email: string, arbitrationId: string, consent: string) {
+  const consentText = consent === 'yes'
+    ? 'Wyraziłeś/aś gotowość do mediacji. / You have expressed willingness to mediate.'
+    : consent === 'no'
+      ? 'Nie wyraziłeś/aś gotowości do mediacji. / You have declined mediation.'
+      : 'Twoja odpowiedź została zarejestrowana — potrzebujesz czasu na decyzję. / Your response has been recorded — you need time to decide.';
+
+  await sendMail(email, 'SettleSync — Potwierdzenie odpowiedzi / Response Confirmation', `
+    <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+      <h2 style="color: #1e293b;">SettleSync</h2>
+      <p>Potwierdzamy otrzymanie Twojej odpowiedzi w postępowaniu <strong>${arbitrationId}</strong>.</p>
+      <p>${consentText}</p>
+      <p style="color: #64748b; font-size: 14px;">Twoja odpowiedź jest anonimowa — arbiter nie wie, która strona odpowiedziała jako pierwsza.</p>
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+      <p style="color: #94a3b8; font-size: 12px;">We confirm receipt of your response in proceeding <strong>${arbitrationId}</strong>. Your response is anonymous.</p>
+    </div>
+  `);
+}
+
 export async function sendBothAgreedNotification(
   arbiterEmail: string,
   arbitrationId: string,

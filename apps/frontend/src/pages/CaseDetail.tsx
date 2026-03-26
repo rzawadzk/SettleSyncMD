@@ -18,13 +18,25 @@ export default function CaseDetail() {
   const [loading, setLoading] = useState(true);
   const [sendingLinks, setSendingLinks] = useState(false);
   const [linksSent, setLinksSent] = useState(false);
+  const [resending, setResending] = useState<string | null>(null);
+  const [resendSuccess, setResendSuccess] = useState<string | null>(null);
   const [error, setError] = useState('');
+
+  const refreshCase = async () => {
+    try {
+      const updated = await api.get<CaseDetailType>(`/cases/${id}`);
+      setCaseData(updated);
+    } catch {
+      // silent refresh failure
+    }
+  };
 
   useEffect(() => {
     api.get<CaseDetailType>(`/cases/${id}`)
       .then(setCaseData)
+      .catch(() => setError(t('common.error')))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, t]);
 
   const handleSendLinks = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -38,9 +50,7 @@ export default function CaseDetail() {
         partyBEmail: form.get('partyBEmail'),
       });
       setLinksSent(true);
-      // Odśwież dane sprawy
-      const updated = await api.get<CaseDetailType>(`/cases/${id}`);
-      setCaseData(updated);
+      await refreshCase();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'));
     } finally {
@@ -48,8 +58,39 @@ export default function CaseDetail() {
     }
   };
 
-  if (loading) return <div className="text-slate-400">{t('common.loading')}</div>;
-  if (!caseData) return <div className="text-red-400">Case not found</div>;
+  const handleResend = async (party: string) => {
+    const email = prompt(t('caseDetail.resendPrompt'));
+    if (!email) return;
+
+    setResending(party);
+    setResendSuccess(null);
+    try {
+      await api.post(`/cases/${id}/resend-link`, { party, email });
+      setResendSuccess(party);
+      setTimeout(() => setResendSuccess(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.error'));
+    } finally {
+      setResending(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-3 text-slate-400">
+        <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full" />
+        {t('common.loading')}
+      </div>
+    );
+  }
+
+  if (!caseData) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-400">
+        {t('caseDetail.notFound')}
+      </div>
+    );
+  }
 
   const allLinksSent = caseData.parties.every((p) => p.emailSent);
 
@@ -70,7 +111,7 @@ export default function CaseDetail() {
         </span>
       </div>
 
-      {/* Wysyłka linków */}
+      {/* Send links form */}
       {!allLinksSent && (
         <div className="mt-6 bg-slate-900 border border-slate-800 rounded-lg p-4">
           <h2 className="font-medium text-slate-100 mb-3">{t('caseDetail.sendLinks')}</h2>
@@ -100,7 +141,7 @@ export default function CaseDetail() {
               <button
                 type="submit"
                 disabled={sendingLinks}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-medium rounded-md transition text-sm"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-medium rounded-md transition text-sm"
               >
                 {sendingLinks ? t('common.loading') : t('caseDetail.send')}
               </button>
@@ -109,17 +150,47 @@ export default function CaseDetail() {
         </div>
       )}
 
-      {/* Status stron */}
+      {/* Error display */}
+      {error && allLinksSent && (
+        <div className="mt-4 bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-sm text-red-400">
+          {error}
+        </div>
+      )}
+
+      {/* Party status */}
       <div className="mt-6">
-        <h2 className="font-medium text-slate-100 mb-3">{t('caseDetail.partyStatus')}</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-medium text-slate-100">{t('caseDetail.partyStatus')}</h2>
+          <button
+            onClick={refreshCase}
+            className="text-xs text-slate-500 hover:text-slate-300 transition"
+          >
+            {t('caseDetail.refresh')}
+          </button>
+        </div>
         <div className="space-y-3">
           {caseData.parties.map((p) => (
             <div key={p.party} className="bg-slate-900 border border-slate-800 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-medium text-slate-200">{t('caseDetail.party')} {p.party}</h3>
-                {p.emailSent && (
-                  <span className="text-xs text-slate-500">{t('caseDetail.emailSent')}: ✓</span>
-                )}
+                <div className="flex items-center gap-2">
+                  {p.emailSent && (
+                    <span className="text-xs text-slate-500">{t('caseDetail.emailSent')}: ✓</span>
+                  )}
+                  {p.emailSent && !p.hasResponded && (
+                    <button
+                      onClick={() => handleResend(p.party)}
+                      disabled={resending === p.party}
+                      className="text-xs px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-800 disabled:text-slate-600 text-slate-300 rounded transition"
+                    >
+                      {resending === p.party
+                        ? t('common.loading')
+                        : resendSuccess === p.party
+                          ? '✓ ' + t('caseDetail.resendSuccess')
+                          : t('caseDetail.resend')}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {p.hasResponded ? (

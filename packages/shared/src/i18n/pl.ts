@@ -59,6 +59,11 @@ export const pl = {
     timeHorizon: 'Horyzont czasowy',
     note: 'Uwaga',
     notResponded: 'Brak odpowiedzi',
+    resend: 'Wyślij ponownie',
+    resendPrompt: 'Podaj adres e-mail, na który ponownie wysłać link:',
+    resendSuccess: 'Wysłano',
+    refresh: 'Odśwież',
+    notFound: 'Nie znaleziono sprawy',
   },
   party: {
     title: 'Zgoda na mediację',
@@ -79,6 +84,9 @@ export const pl = {
     noteLabel: 'Uwaga (opcjonalna, max 280 znaków)',
     notePlaceholder: 'Dodatkowe informacje dla arbitra...',
     submitConsent: 'Wyślij odpowiedź',
+    updateResponse: 'Zaktualizuj odpowiedź',
+    changeResponse: 'Zmień odpowiedź',
+    changingInfo: 'Możesz zmienić swoją odpowiedź. Poprzednia odpowiedź zostanie nadpisana.',
     confirmation: {
       title: 'Dziękujemy',
       message: 'Twoja odpowiedź została zarejestrowana anonimowo.',

@@ -32,6 +32,11 @@ export interface PartyView {
   party: PartyLabel;
   alreadyResponded: boolean;
   expired: boolean;
+  previousResponse?: {
+    consent: ConsentOption;
+    timeHorizon: TimeHorizon | null;
+    note: string | null;
+  };
 }
 
 export interface ApiError {

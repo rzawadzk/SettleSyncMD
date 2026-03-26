@@ -59,6 +59,11 @@ export const en = {
     timeHorizon: 'Time Horizon',
     note: 'Note',
     notResponded: 'No response yet',
+    resend: 'Resend link',
+    resendPrompt: 'Enter the email address to resend the link to:',
+    resendSuccess: 'Sent',
+    refresh: 'Refresh',
+    notFound: 'Case not found',
   },
   party: {
     title: 'Mediation Consent',
@@ -79,6 +84,9 @@ export const en = {
     noteLabel: 'Note (optional, max 280 characters)',
     notePlaceholder: 'Additional information for the arbiter...',
     submitConsent: 'Submit response',
+    updateResponse: 'Update response',
+    changeResponse: 'Change my response',
+    changingInfo: 'You can change your response. Your previous answer will be overwritten.',
     confirmation: {
       title: 'Thank You',
       message: 'Your response has been recorded anonymously.',

@@ -17,10 +17,18 @@ export default function PartyLanding() {
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
   const [submitResult, setSubmitResult] = useState<ConsentOption | null>(null);
+  const [changingResponse, setChangingResponse] = useState(false);
 
   useEffect(() => {
     api.get<PartyView>(`/party/${token}`)
-      .then(setView)
+      .then((data) => {
+        setView(data);
+        if (data.previousResponse) {
+          setConsent(data.previousResponse.consent);
+          setTimeHorizon((data.previousResponse.timeHorizon as TimeHorizon) || '');
+          setNote(data.previousResponse.note || '');
+        }
+      })
       .catch(() => setError(t('common.error')))
       .finally(() => setLoading(false));
   }, [token, t]);
@@ -43,6 +51,7 @@ export default function PartyLanding() {
       });
       setSubmitResult(consent as ConsentOption);
       setSubmitted(true);
+      setChangingResponse(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'));
     } finally {
@@ -58,7 +67,7 @@ export default function PartyLanding() {
     );
   }
 
-  // Potwierdzenie po wysłaniu
+  // Confirmation after submit
   if (submitted && submitResult) {
     const messageKey = submitResult === 'yes' ? 'messageYes' : submitResult === 'no' ? 'messageNo' : 'messageLater';
     return (
@@ -72,12 +81,20 @@ export default function PartyLanding() {
     );
   }
 
-  // Już odpowiedział lub wygasł
-  if (view?.alreadyResponded) {
+  // Already responded — show previous response with option to change
+  if (view?.alreadyResponded && !changingResponse) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-8 shadow-xl text-center max-w-md">
-          <p className="text-slate-300">{t('party.alreadyResponded')}</p>
+          <p className="text-slate-300 mb-4">{t('party.alreadyResponded')}</p>
+          {view.previousResponse && !view.expired && (
+            <button
+              onClick={() => setChangingResponse(true)}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm rounded-md transition"
+            >
+              {t('party.changeResponse')}
+            </button>
+          )}
         </div>
       </div>
     );
@@ -102,6 +119,12 @@ export default function PartyLanding() {
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 shadow-xl">
+          {changingResponse && (
+            <div className="mb-4 bg-blue-500/10 border border-blue-500/20 rounded-md p-3">
+              <p className="text-sm text-blue-400">{t('party.changingInfo')}</p>
+            </div>
+          )}
+
           <h2 className="text-lg font-semibold text-slate-100 mb-4">{t('party.question')}</h2>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -131,7 +154,7 @@ export default function PartyLanding() {
               ))}
             </div>
 
-            {/* Time horizon (tylko przy TAK) */}
+            {/* Time horizon (only for yes) */}
             {consent === 'yes' && (
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -182,8 +205,18 @@ export default function PartyLanding() {
               disabled={submitting || !consent || (consent === 'yes' && !timeHorizon)}
               className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-medium rounded-md transition"
             >
-              {submitting ? t('common.loading') : t('party.submitConsent')}
+              {submitting ? t('common.loading') : changingResponse ? t('party.updateResponse') : t('party.submitConsent')}
             </button>
+
+            {changingResponse && (
+              <button
+                type="button"
+                onClick={() => setChangingResponse(false)}
+                className="w-full py-2 text-sm text-slate-400 hover:text-slate-200 transition"
+              >
+                {t('common.cancel')}
+              </button>
+            )}
           </form>
         </div>
 

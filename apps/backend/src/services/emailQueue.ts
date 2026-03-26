@@ -38,7 +38,14 @@ export interface BothAgreedJobData {
   internalName: string;
 }
 
-export type EmailJobData = MagicLinkJobData | PartyLinkJobData | BothAgreedJobData;
+export interface PartyConfirmationJobData {
+  type: 'party-confirmation';
+  to: string;
+  arbitrationId: string;
+  consent: string;
+}
+
+export type EmailJobData = MagicLinkJobData | PartyLinkJobData | BothAgreedJobData | PartyConfirmationJobData;
 
 export async function enqueueEmail(data: EmailJobData) {
   await emailQueue.add(data.type, data);

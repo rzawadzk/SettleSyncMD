@@ -48,12 +48,21 @@ router.get('/:token', partyRateLimiter, async (req, res) => {
       where: eq(schema.responses.partyTokenId, partyToken.id),
     });
 
+    const expired = isTokenExpired(partyToken.expiresAt);
     const view: PartyView = {
       caseArbitrationId: caseRow.arbitrationId,
       party: partyToken.party as 'A' | 'B',
       alreadyResponded: !!existingResponse,
-      expired: isTokenExpired(partyToken.expiresAt),
+      expired,
     };
+
+    if (existingResponse && !expired) {
+      view.previousResponse = {
+        consent: existingResponse.consent as 'yes' | 'no' | 'later',
+        timeHorizon: (existingResponse.timeHorizon as any) ?? null,
+        note: existingResponse.note ?? null,
+      };
+    }
 
     res.json(view);
   } catch (error) {
@@ -94,16 +103,6 @@ router.post('/:token/respond', partyRateLimiter, async (req, res) => {
       return;
     }
 
-    // Sprawdź czy już odpowiedział
-    const existingResponse = await db.query.responses.findFirst({
-      where: eq(schema.responses.partyTokenId, partyToken.id),
-    });
-
-    if (existingResponse) {
-      res.status(409).json({ error: 'Response already submitted' });
-      return;
-    }
-
     // Waliduj dane
     const parsed = partyResponseSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -113,14 +112,29 @@ router.post('/:token/respond', partyRateLimiter, async (req, res) => {
 
     const { consent, timeHorizon, note } = parsed.data;
 
-    // Zapisz odpowiedź
-    await db.insert(schema.responses).values({
-      partyTokenId: partyToken.id,
-      consent,
-      timeHorizon: timeHorizon ?? null,
-      note: note ?? null,
-      respondedAt: new Date(),
+    // Sprawdź czy już odpowiedział — jeśli tak, aktualizuj odpowiedź
+    const existingResponse = await db.query.responses.findFirst({
+      where: eq(schema.responses.partyTokenId, partyToken.id),
     });
+
+    if (existingResponse) {
+      await db.update(schema.responses)
+        .set({
+          consent,
+          timeHorizon: timeHorizon ?? null,
+          note: note ?? null,
+          respondedAt: new Date(),
+        })
+        .where(eq(schema.responses.id, existingResponse.id));
+    } else {
+      await db.insert(schema.responses).values({
+        partyTokenId: partyToken.id,
+        consent,
+        timeHorizon: timeHorizon ?? null,
+        note: note ?? null,
+        respondedAt: new Date(),
+      });
+    }
 
     // Sprawdź czy obie strony odpowiedziały "yes" i zaktualizuj status sprawy
     await updateCaseStatus(partyToken.caseId);

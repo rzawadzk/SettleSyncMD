@@ -4,7 +4,7 @@ import { createCaseSchema, sendLinksSchema, TOKEN_TTL_HOURS } from '@settlesync/
 import type { CaseSummary, CaseDetail } from '@settlesync/shared';
 import { db, schema } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
-import { generatePartyToken, getPartyTokenExpiry } from '../services/token.js';
+import { generatePartyToken, getPartyTokenExpiry, isTokenExpired } from '../services/token.js';
 import { enqueueEmail } from '../services/emailQueue.js';
 import { logError } from '../services/logger.js';
 
@@ -168,6 +168,59 @@ router.post('/:id/send-links', async (req, res) => {
     res.json({ message: 'Links sent successfully' });
   } catch (error) {
     logError('cases/send-links', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/cases/:id/resend-link
+ * Przyjmuje: { party: 'A' | 'B', email: string }
+ * Zwraca: { message: string }
+ * Uprawnienia: arbiter (JWT), tylko własne sprawy
+ * Ponownie wysyła link do strony.
+ */
+router.post('/:id/resend-link', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Invalid case ID' });
+      return;
+    }
+
+    const { party, email } = req.body;
+    if (!party || !['A', 'B'].includes(party) || !email) {
+      res.status(400).json({ error: 'Invalid input: party (A|B) and email required' });
+      return;
+    }
+
+    const caseRow = await db.query.cases.findFirst({
+      where: and(eq(schema.cases.id, id), eq(schema.cases.arbiterId, req.arbiter!.arbiterId)),
+    });
+
+    if (!caseRow) {
+      res.status(404).json({ error: 'Case not found' });
+      return;
+    }
+
+    const token = await db.query.partyTokens.findFirst({
+      where: and(eq(schema.partyTokens.caseId, id), eq(schema.partyTokens.party, party)),
+    });
+
+    if (!token) {
+      res.status(404).json({ error: 'Party token not found' });
+      return;
+    }
+
+    if (isTokenExpired(token.expiresAt)) {
+      res.status(410).json({ error: 'Token has expired' });
+      return;
+    }
+
+    await enqueueEmail({ type: 'party-link', to: email, token: token.token, arbitrationId: caseRow.arbitrationId });
+
+    res.json({ message: 'Link resent successfully' });
+  } catch (error) {
+    logError('cases/resend-link', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

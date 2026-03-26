@@ -15,12 +15,14 @@ export default function Dashboard() {
   const { t } = useTranslation();
   const [cases, setCases] = useState<CaseSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     api.get<CaseSummary[]>('/cases')
       .then(setCases)
+      .catch((err) => setError(err instanceof Error ? err.message : t('common.error')))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   return (
     <div>
@@ -34,8 +36,15 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {loading ? (
-        <div className="text-slate-400">{t('common.loading')}</div>
+      {error ? (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-400">
+          {error}
+        </div>
+      ) : loading ? (
+        <div className="flex items-center gap-3 text-slate-400">
+          <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full" />
+          {t('common.loading')}
+        </div>
       ) : cases.length === 0 ? (
         <div className="text-center py-16 text-slate-500">{t('dashboard.noCases')}</div>
       ) : (
