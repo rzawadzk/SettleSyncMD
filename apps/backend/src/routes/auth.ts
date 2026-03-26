@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { eq, and, isNull } from 'drizzle-orm';
+import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { magicLinkRequestSchema } from '@settlesync/shared';
 import { db, schema } from '../db/index.js';
 import { generateMagicLinkToken, getMagicLinkExpiry, isTokenExpired } from '../services/token.js';
@@ -12,10 +14,7 @@ const router = Router();
 
 /**
  * POST /api/auth/magic-link
- * Przyjmuje: { email: string }
- * Zwraca: { message: string }
- * Uprawnienia: publiczny, rate limited
- * Wysyła magic link na podany email. Tworzy arbitra jeśli nie istnieje.
+ * Send magic link to mediator email. Creates mediator if not exists.
  */
 router.post('/magic-link', authRateLimiter, async (req, res) => {
   try {
@@ -27,7 +26,6 @@ router.post('/magic-link', authRateLimiter, async (req, res) => {
 
     const { email } = parsed.data;
 
-    // Znajdź lub utwórz arbitra
     let arbiter = await db.query.arbiters.findFirst({
       where: eq(schema.arbiters.email, email),
     });
@@ -37,7 +35,12 @@ router.post('/magic-link', authRateLimiter, async (req, res) => {
       arbiter = result;
     }
 
-    // Wygeneruj magic link
+    // Admins cannot use magic link — they must use password + OTP
+    if (arbiter.role === 'admin') {
+      res.json({ message: 'If this email is registered, a login link has been sent.' });
+      return;
+    }
+
     const token = generateMagicLinkToken();
     const expiresAt = getMagicLinkExpiry();
 
@@ -47,10 +50,8 @@ router.post('/magic-link', authRateLimiter, async (req, res) => {
       expiresAt: new Date(expiresAt),
     });
 
-    // Kolejkuj email (async, z retry)
     await enqueueEmail({ type: 'magic-link', to: email, token });
 
-    // Odpowiedź nie zdradza czy email istnieje w systemie
     res.json({ message: 'If this email is registered, a login link has been sent.' });
   } catch (error) {
     logError('auth/magic-link', error);
@@ -60,10 +61,7 @@ router.post('/magic-link', authRateLimiter, async (req, res) => {
 
 /**
  * GET /api/auth/verify?token=...
- * Przyjmuje: token w query string
- * Zwraca: { token: string (JWT), arbiter: { id, email } }
- * Uprawnienia: publiczny, rate limited
- * Weryfikuje magic link i zwraca JWT sesyjny.
+ * Verify magic link, return JWT with role: 'mediator'
  */
 router.get('/verify', authRateLimiter, async (req, res) => {
   try {
@@ -85,7 +83,6 @@ router.get('/verify', authRateLimiter, async (req, res) => {
       return;
     }
 
-    // Oznacz jako użyty
     await db.update(schema.magicLinks)
       .set({ usedAt: new Date() })
       .where(eq(schema.magicLinks.id, magicLink.id));
@@ -99,14 +96,125 @@ router.get('/verify', authRateLimiter, async (req, res) => {
       return;
     }
 
-    const jwt = signJwt({ arbiterId: arbiter.id, email: arbiter.email, tokenVersion: arbiter.tokenVersion });
+    const jwt = signJwt({
+      arbiterId: arbiter.id,
+      email: arbiter.email,
+      role: (arbiter.role as 'mediator' | 'admin') || 'mediator',
+      tokenVersion: arbiter.tokenVersion,
+    });
 
     res.json({
       token: jwt,
-      arbiter: { id: arbiter.id, email: arbiter.email },
+      arbiter: { id: arbiter.id, email: arbiter.email, role: arbiter.role || 'mediator' },
     });
   } catch (error) {
     logError('auth/verify', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/auth/admin-login
+ * Step 1: verify email + password, send OTP to email
+ */
+router.post('/admin-login', authRateLimiter, async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      res.status(400).json({ error: 'Email and password required' });
+      return;
+    }
+
+    const arbiter = await db.query.arbiters.findFirst({
+      where: eq(schema.arbiters.email, email),
+    });
+
+    if (!arbiter || arbiter.role !== 'admin' || !arbiter.passwordHash) {
+      // Don't reveal whether account exists
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
+    }
+
+    const passwordValid = await bcrypt.compare(password, arbiter.passwordHash);
+    if (!passwordValid) {
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
+    }
+
+    // Generate 6-digit OTP
+    const code = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await db.insert(schema.otpCodes).values({
+      arbiterId: arbiter.id,
+      code,
+      expiresAt,
+    });
+
+    // Send OTP via email
+    await enqueueEmail({ type: 'otp-code', to: email, code });
+
+    res.json({ otpRequired: true, message: 'OTP code sent to your email' });
+  } catch (error) {
+    logError('auth/admin-login', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/auth/verify-otp
+ * Step 2: verify OTP code, return JWT with role: 'admin'
+ */
+router.post('/verify-otp', authRateLimiter, async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      res.status(400).json({ error: 'Email and OTP code required' });
+      return;
+    }
+
+    const arbiter = await db.query.arbiters.findFirst({
+      where: eq(schema.arbiters.email, email),
+    });
+
+    if (!arbiter || arbiter.role !== 'admin') {
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
+    }
+
+    // Find valid, unused OTP for this arbiter
+    const otpRecords = await db.query.otpCodes.findMany({
+      where: and(
+        eq(schema.otpCodes.arbiterId, arbiter.id),
+        eq(schema.otpCodes.code, code),
+        eq(schema.otpCodes.used, false),
+      ),
+    });
+
+    const validOtp = otpRecords.find((otp) => !isTokenExpired(otp.expiresAt));
+    if (!validOtp) {
+      res.status(401).json({ error: 'Invalid or expired OTP code' });
+      return;
+    }
+
+    // Mark OTP as used
+    await db.update(schema.otpCodes)
+      .set({ used: true })
+      .where(eq(schema.otpCodes.id, validOtp.id));
+
+    const jwt = signJwt({
+      arbiterId: arbiter.id,
+      email: arbiter.email,
+      role: 'admin',
+      tokenVersion: arbiter.tokenVersion,
+    });
+
+    res.json({
+      token: jwt,
+      arbiter: { id: arbiter.id, email: arbiter.email, role: 'admin' },
+    });
+  } catch (error) {
+    logError('auth/verify-otp', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

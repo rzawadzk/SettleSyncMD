@@ -137,6 +137,27 @@ Your response is anonymous.`;
   await sendMail(email, 'SettleSync — Potwierdzenie odpowiedzi / Response Confirmation', html, text);
 }
 
+export async function sendOtpCode(email: string, code: string) {
+  const html = `
+    <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+      <h2 style="color: #1e293b;">SettleSync</h2>
+      <p>Twój kod weryfikacyjny / Your verification code:</p>
+      <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; text-align: center; color: #1e293b; padding: 16px; background: #f1f5f9; border-radius: 8px;">${code}</p>
+      <p style="color: #64748b; font-size: 14px;">Kod jest ważny przez 10 minut. Nie udostępniaj go nikomu.</p>
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+      <p style="color: #94a3b8; font-size: 12px;">This code is valid for 10 minutes. Do not share it with anyone.</p>
+    </div>
+  `;
+
+  const text = `SettleSync — Kod weryfikacyjny / Verification Code
+
+Twój kod / Your code: ${code}
+
+Kod jest ważny przez 10 minut. / Valid for 10 minutes.`;
+
+  await sendMail(email, 'SettleSync — Kod weryfikacyjny / Verification Code', html, text);
+}
+
 export async function sendBothAgreedNotification(
   arbiterEmail: string,
   arbitrationId: string,

@@ -6,9 +6,12 @@ const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'producti
   ? (() => { throw new Error('JWT_SECRET must be set in production'); })()
   : 'dev-jwt-secret-change-in-production');
 
+export type Role = 'mediator' | 'admin';
+
 export interface AuthPayload {
   arbiterId: number;
   email: string;
+  role: Role;
   tokenVersion: number;
 }
 
@@ -39,6 +42,16 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   } catch {
     res.status(401).json({ error: 'Invalid or expired token' });
   }
+}
+
+export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  requireAuth(req, res, () => {
+    if (req.arbiter?.role !== 'admin') {
+      res.status(403).json({ error: 'Admin access required' });
+      return;
+    }
+    next();
+  });
 }
 
 // Verify tokenVersion against DB (use on sensitive operations)

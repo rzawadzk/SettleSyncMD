@@ -1,6 +1,6 @@
 import { Worker } from 'bullmq';
 import { eq, and, ne, lt } from 'drizzle-orm';
-import { sendMagicLink, sendPartyLink, sendBothAgreedNotification, sendPartyConfirmation, initEmailTransport } from './services/email.js';
+import { sendMagicLink, sendPartyLink, sendBothAgreedNotification, sendPartyConfirmation, sendOtpCode, initEmailTransport } from './services/email.js';
 import type { EmailJobData } from './services/emailQueue.js';
 import { db, schema } from './db/index.js';
 import { logError, logInfo } from './services/logger.js';
@@ -70,6 +70,9 @@ async function start() {
           break;
         case 'party-confirmation':
           await sendPartyConfirmation(data.to, data.arbitrationId, data.consent);
+          break;
+        case 'otp-code':
+          await sendOtpCode(data.to, data.code);
           break;
       }
       logInfo('email-worker', `Sent ${data.type} email to ${data.to.substring(0, 3)}***`);

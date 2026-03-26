@@ -1,8 +1,11 @@
 import type { CaseStatus, ConsentOption, TimeHorizon, PartyLabel } from './constants.js';
 
+export type Role = 'mediator' | 'admin';
+
 export interface ArbiterProfile {
   id: number;
   email: string;
+  role: Role;
 }
 
 export interface CaseSummary {
@@ -16,6 +19,9 @@ export interface CaseSummary {
 export interface CaseDetail extends CaseSummary {
   description: string | null;
   tokenTtlHours: number;
+  viewerRole: Role;
+  respondedCount: number;
+  timeHorizons: string[];
   parties: {
     party: PartyLabel;
     emailSent: boolean;

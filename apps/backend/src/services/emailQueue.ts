@@ -45,7 +45,13 @@ export interface PartyConfirmationJobData {
   consent: string;
 }
 
-export type EmailJobData = MagicLinkJobData | PartyLinkJobData | BothAgreedJobData | PartyConfirmationJobData;
+export interface OtpCodeJobData {
+  type: 'otp-code';
+  to: string;
+  code: string;
+}
+
+export type EmailJobData = MagicLinkJobData | PartyLinkJobData | BothAgreedJobData | PartyConfirmationJobData | OtpCodeJobData;
 
 export async function enqueueEmail(data: EmailJobData) {
   await emailQueue.add(data.type, data);

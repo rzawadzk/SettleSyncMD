@@ -136,19 +136,74 @@ cmd_backup() {
   ls -lh "$SCRIPT_DIR/backups/" | tail -5
 }
 
+cmd_create_admin() {
+  echo "=== SettleSync: Create Admin Account ==="
+
+  if [ ! -f "$ENV_FILE" ]; then
+    echo "Error: .env not found. Run ./deploy.sh --init first."
+    exit 1
+  fi
+
+  source "$ENV_FILE"
+  cd "$SCRIPT_DIR"
+
+  read -rp "Admin email: " admin_email
+  if [ -z "$admin_email" ]; then
+    echo "Error: Email is required."
+    exit 1
+  fi
+
+  read -rsp "Admin password: " admin_password
+  echo
+  if [ -z "$admin_password" ] || [ ${#admin_password} -lt 8 ]; then
+    echo "Error: Password must be at least 8 characters."
+    exit 1
+  fi
+
+  read -rsp "Confirm password: " admin_password_confirm
+  echo
+  if [ "$admin_password" != "$admin_password_confirm" ]; then
+    echo "Error: Passwords do not match."
+    exit 1
+  fi
+
+  # Hash password and insert admin via docker compose run
+  echo "Creating admin account..."
+  ADMIN_EMAIL="$admin_email" ADMIN_PASS="$admin_password" \
+  docker compose run --rm \
+    -e "ADMIN_EMAIL=$admin_email" \
+    -e "ADMIN_PASS=$admin_password" \
+    backend node -e "
+      const bcrypt = require('bcrypt');
+      const { Pool } = require('pg');
+      (async () => {
+        const hash = await bcrypt.hash(process.env.ADMIN_PASS, 12);
+        const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+        await pool.query(
+          \"INSERT INTO arbiters (email, role, password_hash) VALUES (\\\$1, \\\$2, \\\$3) ON CONFLICT (email) DO UPDATE SET role = \\\$2, password_hash = \\\$3\",
+          [process.env.ADMIN_EMAIL, 'admin', hash]
+        );
+        await pool.end();
+        console.log('Admin account created successfully.');
+      })().catch(e => { console.error(e.message); process.exit(1); });
+    "
+}
+
 # Main
 case "${1:-}" in
-  --init)     cmd_init ;;
-  --update)   cmd_update ;;
-  --ssl)      cmd_ssl ;;
-  --backup-now) cmd_backup ;;
+  --init)         cmd_init ;;
+  --update)       cmd_update ;;
+  --ssl)          cmd_ssl ;;
+  --backup-now)   cmd_backup ;;
+  --create-admin) cmd_create_admin ;;
   *)
-    echo "Usage: $0 [--init|--update|--ssl|--backup-now]"
+    echo "Usage: $0 [--init|--update|--ssl|--backup-now|--create-admin]"
     echo ""
-    echo "  --init       Generate .env with random secrets"
-    echo "  --update     Build containers and deploy"
-    echo "  --ssl        Provision SSL certificate via Let's Encrypt"
-    echo "  --backup-now Run a manual database backup"
+    echo "  --init         Generate .env with random secrets"
+    echo "  --update       Build containers and deploy"
+    echo "  --ssl          Provision SSL certificate via Let's Encrypt"
+    echo "  --backup-now   Run a manual database backup"
+    echo "  --create-admin Create an admin account"
     exit 1
     ;;
 esac

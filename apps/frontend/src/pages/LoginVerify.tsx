@@ -18,7 +18,7 @@ export default function LoginVerify() {
       return;
     }
 
-    api.get<{ token: string; arbiter: { id: number; email: string } }>(`/auth/verify?token=${encodeURIComponent(token)}`)
+    api.get<{ token: string; arbiter: { id: number; email: string; role: 'mediator' | 'admin' } }>(`/auth/verify?token=${encodeURIComponent(token)}`)
       .then((data) => {
         login(data.token, data.arbiter);
         navigate('/dashboard', { replace: true });

@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { CaseDetail as CaseDetailType } from '@settlesync/shared';
 import { api } from '../lib/api';
+import { useAuth } from '../hooks/useAuth';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
@@ -14,6 +15,8 @@ const statusColors: Record<string, string> = {
 export default function CaseDetail() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
+  const { arbiter } = useAuth();
+  const isAdmin = arbiter?.role === 'admin';
   const [caseData, setCaseData] = useState<CaseDetailType | null>(null);
   const [loading, setLoading] = useState(true);
   const [sendingLinks, setSendingLinks] = useState(false);
@@ -168,63 +171,116 @@ export default function CaseDetail() {
             {t('caseDetail.refresh')}
           </button>
         </div>
-        <div className="space-y-3">
-          {caseData.parties.map((p) => (
-            <div key={p.party} className="bg-slate-900 border border-slate-800 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium text-slate-200">{t('caseDetail.party')} {p.party}</h3>
-                <div className="flex items-center gap-2">
-                  {p.emailSent && (
-                    <span className="text-xs text-slate-500">{t('caseDetail.emailSent')}: ✓</span>
-                  )}
-                  {p.emailSent && !p.hasResponded && (
-                    <button
-                      onClick={() => handleResend(p.party)}
-                      disabled={resending === p.party}
-                      className="text-xs px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-800 disabled:text-slate-600 text-slate-300 rounded transition"
-                    >
-                      {resending === p.party
-                        ? t('common.loading')
-                        : resendSuccess === p.party
-                          ? '✓ ' + t('caseDetail.resendSuccess')
-                          : t('caseDetail.resend')}
-                    </button>
-                  )}
-                </div>
-              </div>
 
-              {p.hasResponded ? (
-                <div className="space-y-1 text-sm">
-                  <div className="flex gap-2">
-                    <span className="text-slate-400">{t('caseDetail.consent')}:</span>
-                    <span className={p.consent === 'yes' ? 'text-green-400' : p.consent === 'no' ? 'text-red-400' : 'text-yellow-400'}>
-                      {p.consent === 'yes' ? t('party.consentYes') : p.consent === 'no' ? t('party.consentNo') : t('party.consentLater')}
-                    </span>
+        {isAdmin ? (
+          /* Admin: full per-party details */
+          <div className="space-y-3">
+            {caseData.parties.map((p) => (
+              <div key={p.party} className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-medium text-slate-200">{t('caseDetail.party')} {p.party}</h3>
+                  <div className="flex items-center gap-2">
+                    {p.emailSent && (
+                      <span className="text-xs text-slate-500">{t('caseDetail.emailSent')}: ✓</span>
+                    )}
+                    {p.emailSent && !p.hasResponded && (
+                      <button
+                        onClick={() => handleResend(p.party)}
+                        disabled={resending === p.party}
+                        className="text-xs px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-800 disabled:text-slate-600 text-slate-300 rounded transition"
+                      >
+                        {resending === p.party
+                          ? t('common.loading')
+                          : resendSuccess === p.party
+                            ? '✓ ' + t('caseDetail.resendSuccess')
+                            : t('caseDetail.resend')}
+                      </button>
+                    )}
                   </div>
-                  {p.timeHorizon && (
-                    <div className="flex gap-2">
-                      <span className="text-slate-400">{t('caseDetail.timeHorizon')}:</span>
-                      <span className="text-slate-200">{t(`party.timeHorizons.${p.timeHorizon}`)}</span>
-                    </div>
-                  )}
-                  {p.note && (
-                    <div className="flex gap-2">
-                      <span className="text-slate-400">{t('caseDetail.note')}:</span>
-                      <span className="text-slate-300 italic">"{p.note}"</span>
-                    </div>
-                  )}
-                  {p.respondedAt && (
-                    <p className="text-xs text-slate-500 mt-1">
-                      {t('caseDetail.responded')}: {new Date(p.respondedAt).toLocaleString('pl-PL')}
-                    </p>
-                  )}
                 </div>
-              ) : (
-                <p className="text-sm text-slate-500">{t('caseDetail.notResponded')}</p>
-              )}
+
+                {p.hasResponded ? (
+                  <div className="space-y-1 text-sm">
+                    <div className="flex gap-2">
+                      <span className="text-slate-400">{t('caseDetail.consent')}:</span>
+                      <span className={p.consent === 'yes' ? 'text-green-400' : p.consent === 'no' ? 'text-red-400' : 'text-yellow-400'}>
+                        {p.consent === 'yes' ? t('party.consentYes') : p.consent === 'no' ? t('party.consentNo') : t('party.consentLater')}
+                      </span>
+                    </div>
+                    {p.timeHorizon && (
+                      <div className="flex gap-2">
+                        <span className="text-slate-400">{t('caseDetail.timeHorizon')}:</span>
+                        <span className="text-slate-200">{t(`party.timeHorizons.${p.timeHorizon}`)}</span>
+                      </div>
+                    )}
+                    {p.note && (
+                      <div className="flex gap-2">
+                        <span className="text-slate-400">{t('caseDetail.note')}:</span>
+                        <span className="text-slate-300 italic">"{p.note}"</span>
+                      </div>
+                    )}
+                    {p.respondedAt && (
+                      <p className="text-xs text-slate-500 mt-1">
+                        {t('caseDetail.responded')}: {new Date(p.respondedAt).toLocaleString('pl-PL')}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">{t('caseDetail.notResponded')}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* Mediator: aggregate anonymous view */
+          <div className="space-y-3">
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+              <p className="text-sm text-slate-300">
+                {t('caseDetail.respondedCount', { count: caseData.respondedCount ?? 0 })}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">{t('caseDetail.anonymousInfo')}</p>
+
+              {/* Resend buttons for each party */}
+              <div className="mt-3 space-y-2">
+                {caseData.parties.map((p) => (
+                  <div key={p.party} className="flex items-center justify-between">
+                    <span className="text-sm text-slate-400">
+                      {t('caseDetail.party')} {p.party}
+                      {p.emailSent && <span className="ml-2 text-xs text-slate-500">({t('caseDetail.emailSent')} ✓)</span>}
+                    </span>
+                    {p.emailSent && (
+                      <button
+                        onClick={() => handleResend(p.party)}
+                        disabled={resending === p.party}
+                        className="text-xs px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-800 disabled:text-slate-600 text-slate-300 rounded transition"
+                      >
+                        {resending === p.party
+                          ? t('common.loading')
+                          : resendSuccess === p.party
+                            ? '✓ ' + t('caseDetail.resendSuccess')
+                            : t('caseDetail.resend')}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
+
+            {/* Time horizons shown when both agreed */}
+            {caseData.timeHorizons && caseData.timeHorizons.length > 0 && (
+              <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+                <h3 className="font-medium text-slate-200 mb-2">{t('caseDetail.timeHorizonsTitle')}</h3>
+                <ul className="space-y-1">
+                  {caseData.timeHorizons.map((th, i) => (
+                    <li key={i} className="text-sm text-slate-300">
+                      {t(`party.timeHorizons.${th}`, th)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
