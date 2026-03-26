@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthContext, useAuthState } from './hooks/useAuth';
 import Login from './pages/Login';
+import AdminLogin from './pages/AdminLogin';
 import LoginVerify from './pages/LoginVerify';
 import Dashboard from './pages/Dashboard';
 import CreateCase from './pages/CreateCase';
@@ -22,6 +23,7 @@ export default function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<Login />} />
+        <Route path="/admin-login" element={<AdminLogin />} />
         <Route path="/auth/verify" element={<LoginVerify />} />
         <Route path="/party/:token" element={<PartyLanding />} />
 

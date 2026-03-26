@@ -3,7 +3,7 @@ import { eq, and } from 'drizzle-orm';
 import { createCaseSchema, sendLinksSchema, TOKEN_TTL_HOURS } from '@settlesync/shared';
 import type { CaseSummary, CaseDetail } from '@settlesync/shared';
 import { db, schema } from '../db/index.js';
-import { requireFreshAuth } from '../middleware/auth.js';
+import { requireFreshAuth, type Role } from '../middleware/auth.js';
 import { generatePartyToken, getPartyTokenExpiry, isTokenExpired } from '../services/token.js';
 import { enqueueEmail } from '../services/emailQueue.js';
 import { logError } from '../services/logger.js';
@@ -54,7 +54,7 @@ router.post('/', async (req, res) => {
     }
 
     // Zwróć pełne szczegóły
-    const detail = await getCaseDetail(caseRow.id, req.arbiter!.arbiterId);
+    const detail = await getCaseDetail(caseRow.id, req.arbiter!.arbiterId, req.arbiter!.role as Role);
     res.status(201).json(detail);
   } catch (error) {
     logError('cases/create', error);
@@ -70,8 +70,9 @@ router.post('/', async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
+    const isAdmin = req.arbiter!.role === 'admin';
     const rows = await db.query.cases.findMany({
-      where: eq(schema.cases.arbiterId, req.arbiter!.arbiterId),
+      ...(isAdmin ? {} : { where: eq(schema.cases.arbiterId, req.arbiter!.arbiterId) }),
       orderBy: (cases, { desc }) => [desc(cases.createdAt)],
     });
 
@@ -104,7 +105,7 @@ router.get('/:id', async (req, res) => {
       return;
     }
 
-    const detail = await getCaseDetail(id, req.arbiter!.arbiterId);
+    const detail = await getCaseDetail(id, req.arbiter!.arbiterId, req.arbiter!.role as Role);
     if (!detail) {
       res.status(404).json({ error: 'Case not found' });
       return;
@@ -225,9 +226,11 @@ router.post('/:id/resend-link', async (req, res) => {
   }
 });
 
-async function getCaseDetail(caseId: number, arbiterId: number): Promise<CaseDetail | null> {
+async function getCaseDetail(caseId: number, arbiterId: number, role: Role): Promise<CaseDetail | null> {
   const caseRow = await db.query.cases.findFirst({
-    where: and(eq(schema.cases.id, caseId), eq(schema.cases.arbiterId, arbiterId)),
+    where: role === 'admin'
+      ? eq(schema.cases.id, caseId)
+      : and(eq(schema.cases.id, caseId), eq(schema.cases.arbiterId, arbiterId)),
   });
 
   if (!caseRow) return null;
@@ -236,7 +239,7 @@ async function getCaseDetail(caseId: number, arbiterId: number): Promise<CaseDet
     where: eq(schema.partyTokens.caseId, caseId),
   });
 
-  const parties = await Promise.all(
+  const fullParties = await Promise.all(
     tokens.map(async (t) => {
       const response = await db.query.responses.findFirst({
         where: eq(schema.responses.partyTokenId, t.id),
@@ -253,6 +256,27 @@ async function getCaseDetail(caseId: number, arbiterId: number): Promise<CaseDet
     }),
   );
 
+  const respondedCount = fullParties.filter((p) => p.hasResponded).length;
+  const bothAgreed = caseRow.status === 'both_agreed';
+
+  // Time horizons: only shown when both agreed, unlabeled (shuffled)
+  const timeHorizons: string[] = bothAgreed
+    ? fullParties.map((p) => p.timeHorizon).filter((th): th is NonNullable<typeof th> => th !== null) as string[]
+    : [];
+
+  // Mediators see stripped party details to preserve anonymity
+  const parties = role === 'admin'
+    ? fullParties
+    : fullParties.map((p) => ({
+        party: p.party,
+        emailSent: p.emailSent,
+        hasResponded: false,
+        consent: null,
+        timeHorizon: null,
+        note: null,
+        respondedAt: null,
+      }));
+
   return {
     id: caseRow.id,
     internalName: caseRow.internalName,
@@ -260,6 +284,9 @@ async function getCaseDetail(caseId: number, arbiterId: number): Promise<CaseDet
     description: caseRow.description,
     status: caseRow.status as CaseDetail['status'],
     tokenTtlHours: caseRow.tokenTtlHours,
+    viewerRole: role,
+    respondedCount,
+    timeHorizons,
     createdAt: caseRow.createdAt.toISOString(),
     parties,
   };

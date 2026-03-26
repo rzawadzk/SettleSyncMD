@@ -3,7 +3,18 @@ import { pgTable, serial, text, integer, boolean, timestamp, index, unique } fro
 export const arbiters = pgTable('arbiters', {
   id: serial('id').primaryKey(),
   email: text('email').notNull().unique(),
+  role: text('role', { enum: ['mediator', 'admin'] }).notNull().default('mediator'),
+  passwordHash: text('password_hash'),
   tokenVersion: integer('token_version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const otpCodes = pgTable('otp_codes', {
+  id: serial('id').primaryKey(),
+  arbiterId: integer('arbiter_id').notNull().references(() => arbiters.id),
+  code: text('code').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  used: boolean('used').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 
@@ -72,10 +73,17 @@ export default function Login() {
           )}
         </div>
 
-        <div className="text-center mt-4">
-          <button onClick={toggleLang} className="text-sm text-slate-500 hover:text-slate-300 transition">
-            {i18n.language === 'pl' ? 'English' : 'Polski'}
-          </button>
+        <div className="text-center mt-4 space-y-2">
+          <div>
+            <Link to="/admin-login" className="text-sm text-slate-500 hover:text-slate-300 transition">
+              {t('auth.adminLoginLink')}
+            </Link>
+          </div>
+          <div>
+            <button onClick={toggleLang} className="text-sm text-slate-500 hover:text-slate-300 transition">
+              {i18n.language === 'pl' ? 'English' : 'Polski'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

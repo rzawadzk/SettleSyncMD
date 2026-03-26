@@ -58,6 +58,20 @@ async function migrate() {
 
     -- Migration: add token_version column for session invalidation
     ALTER TABLE arbiters ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+
+    -- Migration: add role and password_hash for admin accounts
+    ALTER TABLE arbiters ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'mediator';
+    ALTER TABLE arbiters ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
+    -- OTP codes table for admin two-factor auth
+    CREATE TABLE IF NOT EXISTS otp_codes (
+      id SERIAL PRIMARY KEY,
+      arbiter_id INTEGER NOT NULL REFERENCES arbiters(id),
+      code TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 
   console.log('Database migrated successfully');
