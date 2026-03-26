@@ -3,15 +3,15 @@ import { eq, and } from 'drizzle-orm';
 import { createCaseSchema, sendLinksSchema, TOKEN_TTL_HOURS } from '@settlesync/shared';
 import type { CaseSummary, CaseDetail } from '@settlesync/shared';
 import { db, schema } from '../db/index.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireFreshAuth } from '../middleware/auth.js';
 import { generatePartyToken, getPartyTokenExpiry, isTokenExpired } from '../services/token.js';
 import { enqueueEmail } from '../services/emailQueue.js';
 import { logError } from '../services/logger.js';
 
 const router = Router();
 
-// Wszystkie endpointy wymagają autoryzacji arbitra
-router.use(requireAuth);
+// All endpoints require arbiter auth with token version check
+router.use(requireFreshAuth);
 
 /**
  * POST /api/cases

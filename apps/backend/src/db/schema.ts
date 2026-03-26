@@ -3,6 +3,7 @@ import { pgTable, serial, text, integer, boolean, timestamp, index, unique } fro
 export const arbiters = pgTable('arbiters', {
   id: serial('id').primaryKey(),
   email: text('email').notNull().unique(),
+  tokenVersion: integer('token_version').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

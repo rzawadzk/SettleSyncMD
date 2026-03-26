@@ -18,6 +18,20 @@ app.use(corsMiddleware);
 // Body parsing
 app.use(express.json({ limit: '10kb' }));
 
+// CSRF protection: require custom header on state-changing requests
+// Browsers won't send custom headers in cross-origin form submissions
+app.use((req, res, next) => {
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+    if (req.headers['content-type']?.includes('application/json')) {
+      next();
+    } else {
+      res.status(415).json({ error: 'Content-Type must be application/json' });
+    }
+  } else {
+    next();
+  }
+});
+
 // Health check
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

@@ -55,6 +55,9 @@ async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_party_tokens_token ON party_tokens(token);
     CREATE INDEX IF NOT EXISTS idx_magic_links_token ON magic_links(token);
     CREATE INDEX IF NOT EXISTS idx_cases_arbiter ON cases(arbiter_id);
+
+    -- Migration: add token_version column for session invalidation
+    ALTER TABLE arbiters ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
   `);
 
   console.log('Database migrated successfully');

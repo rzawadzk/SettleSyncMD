@@ -1,6 +1,8 @@
 import { Worker } from 'bullmq';
+import { eq, and, ne, lt } from 'drizzle-orm';
 import { sendMagicLink, sendPartyLink, sendBothAgreedNotification, sendPartyConfirmation, initEmailTransport } from './services/email.js';
 import type { EmailJobData } from './services/emailQueue.js';
+import { db, schema } from './db/index.js';
 import { logError, logInfo } from './services/logger.js';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
@@ -9,6 +11,45 @@ const connection = {
   host: redisUrl.hostname,
   port: parseInt(redisUrl.port || '6379', 10),
 };
+
+// Check for expired cases every 5 minutes
+async function expireCases() {
+  try {
+    const now = new Date();
+    const expiredTokens = await db.query.partyTokens.findMany({
+      where: lt(schema.partyTokens.expiresAt, now),
+    });
+
+    const expiredCaseIds = new Set(expiredTokens.map((t) => t.caseId));
+
+    for (const caseId of expiredCaseIds) {
+      const caseRow = await db.query.cases.findFirst({
+        where: and(
+          eq(schema.cases.id, caseId),
+          ne(schema.cases.status, 'both_agreed'),
+          ne(schema.cases.status, 'expired'),
+        ),
+      });
+
+      if (!caseRow) continue;
+
+      // Check if ALL tokens for this case are expired
+      const tokens = await db.query.partyTokens.findMany({
+        where: eq(schema.partyTokens.caseId, caseId),
+      });
+
+      const allExpired = tokens.every((t) => t.expiresAt < now);
+      if (allExpired) {
+        await db.update(schema.cases)
+          .set({ status: 'expired' })
+          .where(eq(schema.cases.id, caseId));
+        logInfo('expiry-check', `Case ${caseId} marked as expired`);
+      }
+    }
+  } catch (error) {
+    logError('expiry-check', error);
+  }
+}
 
 async function start() {
   await initEmailTransport();
@@ -43,7 +84,11 @@ async function start() {
     logError('email-worker', err);
   });
 
-  logInfo('email-worker', 'Email worker started');
+  // Run expiry check on startup and every 5 minutes
+  await expireCases();
+  setInterval(expireCases, 5 * 60 * 1000);
+
+  logInfo('email-worker', 'Email worker started (with case expiry checker)');
 }
 
 start().catch(console.error);

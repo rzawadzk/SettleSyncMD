@@ -4,7 +4,7 @@ import { magicLinkRequestSchema } from '@settlesync/shared';
 import { db, schema } from '../db/index.js';
 import { generateMagicLinkToken, getMagicLinkExpiry, isTokenExpired } from '../services/token.js';
 import { enqueueEmail } from '../services/emailQueue.js';
-import { signJwt } from '../middleware/auth.js';
+import { signJwt, requireAuth } from '../middleware/auth.js';
 import { authRateLimiter } from '../middleware/rateLimiter.js';
 import { logError } from '../services/logger.js';
 
@@ -99,7 +99,7 @@ router.get('/verify', authRateLimiter, async (req, res) => {
       return;
     }
 
-    const jwt = signJwt({ arbiterId: arbiter.id, email: arbiter.email });
+    const jwt = signJwt({ arbiterId: arbiter.id, email: arbiter.email, tokenVersion: arbiter.tokenVersion });
 
     res.json({
       token: jwt,
@@ -107,6 +107,23 @@ router.get('/verify', authRateLimiter, async (req, res) => {
     });
   } catch (error) {
     logError('auth/verify', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/auth/logout-all
+ * Invalidates all existing sessions for the current arbiter
+ */
+router.post('/logout-all', requireAuth, async (req, res) => {
+  try {
+    await db.update(schema.arbiters)
+      .set({ tokenVersion: (req.arbiter!.tokenVersion || 0) + 1 })
+      .where(eq(schema.arbiters.id, req.arbiter!.arbiterId));
+
+    res.json({ message: 'All sessions invalidated' });
+  } catch (error) {
+    logError('auth/logout-all', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
